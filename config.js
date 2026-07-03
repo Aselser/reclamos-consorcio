@@ -4,8 +4,8 @@
 //  Son claves PÚBLICAS (anon), no pasa nada si quedan en el front.
 // ============================================================
 window.CONFIG = {
-  SUPABASE_URL: "https://TU-PROYECTO.supabase.co",
-  SUPABASE_ANON_KEY: "TU_ANON_KEY",
+  SUPABASE_URL: "https://vphzgdapjyyotjsspqvl.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_MO19B6PVkWxA3lJszQbvlg_Q1203g-M",
 
   // Nombre del edificio que se muestra en las pantallas
   EDIFICIO: "Edificio Viamonte",
