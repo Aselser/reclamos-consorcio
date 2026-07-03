@@ -128,7 +128,7 @@ document.getElementById("enviar").addEventListener("click", async () => {
     datos.categoria = tipo === "reclamo" ? document.getElementById("categoria").value : null;
     datos.detalle = document.getElementById("detalle").value.trim();
   }
-  if (!datos.unidad || !datos.email) { msg.textContent = "Completá al menos la unidad y tu email."; return; }
+  if (!datos.unidad || !datos.vecino_email) { msg.textContent = "Completá al menos la unidad y tu email."; return; }
 
   btn.disabled = true; msg.textContent = "Enviando…";
   try {
