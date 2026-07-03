@@ -51,9 +51,11 @@ export async function crearTicket(datos, archivos) {
 
 // ---------- Vecino: login sin contraseña (link mágico) ----------
 export async function enviarLinkMagico(email) {
+  // Ruta completa (incluye la subcarpeta /reclamos-consorcio/ en GitHub Pages)
+  const redirect = new URL("seguimiento.html", window.location.href).href;
   const { error } = await sb.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.origin + "/seguimiento.html" },
+    options: { emailRedirectTo: redirect },
   });
   if (error) throw error;
 }
