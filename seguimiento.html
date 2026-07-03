@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seguimiento · Consorcio</title>
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">🏢</div>
+    <div class="brand">
+      <h1>Seguimiento de tus reclamos</h1>
+      <p id="sub">Entrá con tu email para ver el estado</p>
+    </div>
+  </header>
+
+  <!-- Pedir link mágico -->
+  <div class="card login-box" id="login">
+    <h2 class="section">Ver mis reclamos</h2>
+    <p class="hint">Ponés tu email y te mandamos un link para entrar. Sin contraseñas.</p>
+    <input id="email" type="email" placeholder="tu@correo.com">
+    <button class="btn" id="pedir">Enviarme el link ✓</button>
+    <p class="hint" id="msg" style="margin-top:12px"></p>
+  </div>
+
+  <!-- Lista de tickets -->
+  <div class="card" id="lista" style="display:none">
+    <p class="hint" id="lista-hint">Tus reclamos. Tocá uno para ver el detalle.</p>
+    <div class="row" id="tks" style="gap:10px"></div>
+
+    <div id="detalle" style="display:none;margin-top:22px;border-top:1px solid var(--line);padding-top:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 class="section" id="d-title"></h2>
+        <span id="d-chip"></span>
+      </div>
+      <p class="hint" id="d-sub"></p>
+      <div class="timeline" id="d-timeline"></div>
+    </div>
+    <button class="btn ghost" id="salir" style="margin-top:18px">Salir</button>
+  </div>
+</div>
+
+<nav class="demobar">
+  <span>Demo · saltar entre páginas:</span>
+  <a href="cargar.html">📩 Cargar</a>
+  <a class="here" href="seguimiento.html">🔎 Seguimiento</a>
+  <a href="admin.html">🗂️ Admin</a>
+</nav>
+
+<script type="module">
+import { sb, misTickets, historialTicket, enviarLinkMagico, cerrarSesion, estadoChip, fmtFecha, fmtMonto } from "./app.js";
+
+const TIPO_EMO = { reclamo: "🛠️", pago: "💰", consulta: "📝" };
+
+async function render() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) { document.getElementById("login").style.display = "block"; document.getElementById("lista").style.display = "none"; return; }
+  document.getElementById("login").style.display = "none";
+  document.getElementById("lista").style.display = "block";
+  document.getElementById("sub").textContent = data.session.user.email;
+
+  const tickets = await misTickets();
+  const cont = document.getElementById("tks");
+  if (!tickets.length) { cont.innerHTML = `<p class="hint">Todavía no cargaste ningún reclamo.</p>`; return; }
+  cont.innerHTML = tickets.map(t => `
+    <div class="tk" data-id="${t.id}">
+      <div><h3>${TIPO_EMO[t.tipo] || "📝"} ${titulo(t)}</h3><small>#${t.codigo} · ${fmtFecha(t.creado)}</small></div>
+      ${estadoChip(t.estado)}
+    </div>`).join("");
+  cont.querySelectorAll(".tk").forEach(el => el.onclick = () => abrir(tickets.find(x => x.id === el.dataset.id)));
+}
+
+function titulo(t) {
+  if (t.tipo === "pago") return "Comprobante " + (t.mes || "");
+  return t.categoria || (t.detalle ? t.detalle.slice(0, 40) : "Reclamo");
+}
+
+async function abrir(t) {
+  document.getElementById("detalle").style.display = "block";
+  document.getElementById("d-title").textContent = titulo(t);
+  document.getElementById("d-sub").textContent = `#${t.codigo} · Unidad ${t.unidad || ""}` + (t.monto ? ` · ${fmtMonto(t.monto)}` : "");
+  document.getElementById("d-chip").innerHTML = estadoChip(t.estado);
+
+  const eventos = [[`Enviaste tu ${t.tipo}`, fmtFecha(t.creado)]];
+  const coments = await historialTicket(t.id); // RLS: solo los NO internos
+  coments.forEach(c => eventos.push([c.cuerpo, `${fmtFecha(c.creado)} · ${c.autor}`]));
+  document.getElementById("d-timeline").innerHTML = eventos.map(e =>
+    `<div class="ev"><div class="mk"></div><div class="body"><b>${e[0]}</b><p>${e[1]}</p></div></div>`).join("");
+  document.getElementById("detalle").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+document.getElementById("pedir").addEventListener("click", async () => {
+  const email = document.getElementById("email").value.trim();
+  const msg = document.getElementById("msg");
+  if (!email) { msg.textContent = "Escribí tu email."; return; }
+  try { await enviarLinkMagico(email); msg.textContent = "¡Listo! Revisá tu correo y tocá el link para entrar."; }
+  catch (e) { msg.textContent = "Ups: " + (e.message || e); }
+});
+document.getElementById("salir").addEventListener("click", async () => { await cerrarSesion(); render(); });
+
+sb.auth.onAuthStateChange(() => render());
+render();
+</script>
+</body>
+</html>

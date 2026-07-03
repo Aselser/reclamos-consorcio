@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cargar reclamo · Consorcio</title>
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">🏢</div>
+    <div class="brand">
+      <h1>Reclamos del Consorcio</h1>
+      <p id="edificio">Cargá tu reclamo o comprobante</p>
+    </div>
+  </header>
+
+  <div class="card" id="form">
+    <h2 class="section">¿Qué querés hacer?</h2>
+    <p class="hint">Elegí el tipo. Según lo que elijas te pedimos distintos datos. No hace falta usuario ni contraseña.</p>
+    <div class="seg" id="tipo">
+      <div class="opt sel" data-t="reclamo"><span class="emo">🛠️</span>Reclamo / arreglo</div>
+      <div class="opt" data-t="pago"><span class="emo">💰</span>Comprobante de pago</div>
+      <div class="opt" data-t="consulta"><span class="emo">📝</span>Consulta</div>
+    </div>
+
+    <div class="row r2" style="margin-top:16px">
+      <div>
+        <label>Torre / Cuerpo</label>
+        <select id="torre"></select>
+      </div>
+      <div>
+        <label>Unidad Funcional (Depto)</label>
+        <input id="unidad" placeholder="Ej: 4° B">
+      </div>
+    </div>
+
+    <div id="campos-reclamo">
+      <label>¿Qué pasó?</label>
+      <select id="categoria"><option>Plomería / pérdida de agua</option><option>Ascensor</option><option>Electricidad / luces</option><option>Limpieza</option><option>Ruidos molestos</option><option>Otro</option></select>
+      <label>Contanos el detalle</label>
+      <textarea id="detalle" placeholder="Ej: Hay una pérdida de agua en el palier del 4° piso desde ayer."></textarea>
+    </div>
+
+    <div id="campos-pago" style="display:none">
+      <div class="row r2">
+        <div><label>Mes que abonás</label><input id="mes" type="month" value="2026-07"></div>
+        <div><label>Monto transferido</label><input id="monto" type="number" placeholder="0"></div>
+      </div>
+      <label>Comentario (opcional)</label>
+      <textarea id="detalle-pago" placeholder="Ej: Pagué expensas de julio + la cuota extra del ascensor."></textarea>
+    </div>
+
+    <label>Adjuntar foto / PDF <span style="color:var(--muted)">(comprobante o foto del problema)</span></label>
+    <label class="drop" for="archivos" id="drop-label" style="display:block">
+      📎 Tocá para sacar una foto o subir un archivo
+    </label>
+    <input id="archivos" type="file" accept="image/*,application/pdf" multiple capture="environment" style="display:none">
+
+    <div class="row r2" style="margin-top:6px">
+      <div><label>Tu nombre</label><input id="nombre" placeholder="Nombre y apellido"></div>
+      <div><label>Email <span style="color:var(--muted)">(para ver el seguimiento)</span></label><input id="email" type="email" placeholder="tu@correo.com"></div>
+    </div>
+
+    <button class="btn" id="enviar">Enviar ✓</button>
+    <p class="hint" id="msg" style="text-align:center;margin-top:12px"></p>
+  </div>
+
+  <div class="card" id="ok" style="display:none;text-align:center">
+    <div style="font-size:44px">✅</div>
+    <h2 class="section" style="margin-top:8px">¡Enviado!</h2>
+    <p class="hint">Tu número de seguimiento es <b id="codigo" style="color:var(--txt);font-size:16px"></b>.<br>Te avisamos las novedades y podés ver el estado cuando quieras.</p>
+    <a class="btn" href="seguimiento.html" style="text-decoration:none">Ver el seguimiento</a>
+  </div>
+
+  <p class="hint" style="text-align:center;margin-top:14px">También podés mandar un mail a <b style="color:var(--txt)">reclamos@tuconsorcio.com</b> y entra igual al sistema.</p>
+</div>
+
+<nav class="demobar">
+  <span>Demo · saltar entre páginas:</span>
+  <a class="here" href="cargar.html">📩 Cargar</a>
+  <a href="seguimiento.html">🔎 Seguimiento</a>
+  <a href="admin.html">🗂️ Admin</a>
+</nav>
+
+<script type="module">
+import { crearTicket } from "./app.js";
+
+document.getElementById("edificio").textContent = (window.CONFIG?.EDIFICIO || "Consorcio") + " · cargá tu reclamo o comprobante";
+const selTorre = document.getElementById("torre");
+(window.CONFIG?.TORRES || ["Único"]).forEach(t => selTorre.add(new Option(t, t)));
+
+let tipo = "reclamo";
+document.querySelectorAll('#tipo .opt').forEach(o => {
+  o.onclick = () => {
+    document.querySelectorAll('#tipo .opt').forEach(x => x.classList.remove('sel'));
+    o.classList.add('sel');
+    tipo = o.dataset.t;
+    document.getElementById('campos-reclamo').style.display = (tipo === 'reclamo' || tipo === 'consulta') ? 'block' : 'none';
+    document.getElementById('campos-pago').style.display = (tipo === 'pago') ? 'block' : 'none';
+  };
+});
+
+const inputArch = document.getElementById("archivos");
+inputArch.addEventListener("change", () => {
+  const n = inputArch.files.length;
+  document.getElementById("drop-label").textContent = n ? `📎 ${n} archivo(s) seleccionado(s)` : "📎 Tocá para sacar una foto o subir un archivo";
+});
+
+document.getElementById("enviar").addEventListener("click", async () => {
+  const msg = document.getElementById("msg");
+  const btn = document.getElementById("enviar");
+  const datos = {
+    tipo,
+    torre: document.getElementById("torre").value,
+    unidad: document.getElementById("unidad").value.trim(),
+    vecino_nombre: document.getElementById("nombre").value.trim(),
+    vecino_email: document.getElementById("email").value.trim(),
+    origen: "web",
+  };
+  if (tipo === "pago") {
+    datos.mes = document.getElementById("mes").value;
+    datos.monto = parseFloat(document.getElementById("monto").value) || null;
+    datos.detalle = document.getElementById("detalle-pago").value.trim();
+  } else {
+    datos.categoria = tipo === "reclamo" ? document.getElementById("categoria").value : null;
+    datos.detalle = document.getElementById("detalle").value.trim();
+  }
+  if (!datos.unidad || !datos.email) { msg.textContent = "Completá al menos la unidad y tu email."; return; }
+
+  btn.disabled = true; msg.textContent = "Enviando…";
+  try {
+    const ticket = await crearTicket(datos, inputArch.files);
+    document.getElementById("form").style.display = "none";
+    document.getElementById("ok").style.display = "block";
+    document.getElementById("codigo").textContent = "#" + ticket.codigo;
+  } catch (e) {
+    msg.textContent = "Ups, no se pudo enviar: " + (e.message || e);
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

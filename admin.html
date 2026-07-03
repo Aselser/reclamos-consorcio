@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Tablero · Consorcio</title>
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<!-- LOGIN (solo admins) -->
+<div id="login" class="login-box">
+  <header class="top" style="justify-content:center">
+    <div class="logo">🏢</div>
+    <div class="brand"><h1>Panel de administración</h1><p>Acceso solo para administradores</p></div>
+  </header>
+  <div class="card">
+    <label style="text-align:left">Email</label>
+    <input id="email" placeholder="tu@correo.com">
+    <label style="text-align:left">Contraseña</label>
+    <input id="pwd" type="password" placeholder="••••••••">
+    <button class="btn" id="entrar">Entrar</button>
+    <p class="hint" id="lmsg" style="margin:14px 0 0"></p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="wrap" style="display:none">
+  <header class="top">
+    <div class="logo">🏢</div>
+    <div class="brand"><h1>Tablero de administradores</h1><p id="quien"></p></div>
+    <button class="btn ghost" id="salir" style="width:auto;margin:0 0 0 auto;padding:8px 16px">Salir</button>
+  </header>
+
+  <div class="card" style="margin-bottom:16px">
+    <h2 class="section">Reclamos y comprobantes</h2>
+    <p class="hint" style="margin:0">Tocá un ticket para verlo, dejar notas internas o cambiar el estado.</p>
+  </div>
+
+  <div class="board" id="board"></div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="modal" id="modal">
+  <div class="sheet">
+    <div class="h">
+      <div>
+        <span id="m-chip"></span>
+        <h2 class="section" style="margin-top:10px" id="m-title"></h2>
+        <p class="hint" style="margin:2px 0 0" id="m-sub"></p>
+      </div>
+      <span class="x" id="m-close">✕</span>
+    </div>
+    <div class="b" id="m-body"></div>
+  </div>
+</div>
+
+<nav class="demobar">
+  <span>Demo · saltar entre páginas:</span>
+  <a href="cargar.html">📩 Cargar</a>
+  <a href="seguimiento.html">🔎 Seguimiento</a>
+  <a class="here" href="admin.html">🗂️ Admin</a>
+</nav>
+
+<script type="module">
+import { sb, loginAdmin, sesionActual, cerrarSesion, todosLosTickets, historialTicket,
+         cambiarEstado, agregarComentario, urlAdjunto, estadoChip, fmtFecha, fmtMonto } from "./app.js";
+
+const TIPO_EMO = { reclamo: "🛠️", pago: "💰", consulta: "📝" };
+const COLS = [
+  { key: "nuevo",     nombre: "Nuevos" },
+  { key: "proceso",   nombre: "En proceso" },
+  { key: "verificar", nombre: "A verificar" },
+  { key: "resuelto",  nombre: "Resuelto" },
+];
+let TICKETS = [];
+
+function titulo(t) {
+  if (t.tipo === "pago") return "Comprobante " + (t.mes || "");
+  return t.categoria || (t.detalle ? t.detalle.slice(0, 32) : "Reclamo");
+}
+
+async function cargarTablero() {
+  TICKETS = await todosLosTickets();
+  const board = document.getElementById("board");
+  board.innerHTML = COLS.map(c => {
+    const items = TICKETS.filter(t => t.estado === c.key);
+    return `<div class="col"><h4>${c.nombre} <span class="count">${items.length}</span></h4>${
+      items.map(t => `
+        <div class="ticket" data-id="${t.id}">
+          <p class="t">${TIPO_EMO[t.tipo] || "📝"} ${titulo(t)}</p>
+          <div class="meta"><span class="tag">${t.tipo === "pago" ? fmtMonto(t.monto) : (t.torre || "") + " · " + (t.unidad || "")}</span><span>#${t.codigo}</span></div>
+        </div>`).join("")
+    }</div>`;
+  }).join("");
+  board.querySelectorAll(".ticket").forEach(el => el.onclick = () => abrir(TICKETS.find(t => t.id === el.dataset.id)));
+}
+
+async function abrir(t) {
+  document.getElementById("m-chip").innerHTML = estadoChip(t.estado);
+  document.getElementById("m-title").textContent = titulo(t);
+  document.getElementById("m-sub").textContent = `#${t.codigo} · ${t.torre || ""} ${t.unidad || ""} · ${t.vecino_nombre || ""}`;
+
+  const coments = await historialTicket(t.id);
+  const { data: adj } = await sb.from("adjuntos").select("*").eq("ticket_id", t.id);
+
+  let adjHtml = "";
+  for (const a of (adj || [])) {
+    const url = await urlAdjunto(a.path);
+    adjHtml += `<div class="kv"><b>Adjunto:</b> <a href="${url}" target="_blank" style="color:var(--brand2)">📎 ${a.nombre}</a></div>`;
+  }
+
+  document.getElementById("m-body").innerHTML = `
+    ${t.detalle ? `<div class="kv"><b>Detalle:</b> ${t.detalle}</div>` : ""}
+    ${t.monto ? `<div class="kv"><b>Monto:</b> ${fmtMonto(t.monto)}</div>` : ""}
+    <div class="kv"><b>Contacto:</b> ${t.vecino_email || ""} ${t.vecino_contacto || ""}</div>
+    ${adjHtml}
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    <label style="margin-top:0">Estado</label>
+    <select id="sel-estado">${COLS.map(c => `<option value="${c.key}" ${c.key === t.estado ? "selected" : ""}>${c.nombre}</option>`).join("")}</select>
+    <div style="font-size:13px;font-weight:700;color:var(--muted);margin:16px 0 8px">Notas / respuestas</div>
+    <div id="hist">${coments.map(c => `<div class="note"><b>${c.autor}${c.interno ? "" : " → vecino"}:</b> ${c.cuerpo} ${c.interno ? '<span class="internal-tag">· interna</span>' : ""}</div>`).join("") || '<p class="hint">Sin notas todavía.</p>'}</div>
+    <textarea id="nuevo-com" placeholder="Escribir una nota o respuesta..."></textarea>
+    <div class="row r2">
+      <button class="btn ghost" id="btn-interna">Nota interna</button>
+      <button class="btn" id="btn-vecino">Responder al vecino</button>
+    </div>`;
+
+  document.getElementById("sel-estado").onchange = async (e) => { await cambiarEstado(t.id, e.target.value); cargarTablero(); };
+  document.getElementById("btn-interna").onclick = () => guardar(t, true);
+  document.getElementById("btn-vecino").onclick = () => guardar(t, false);
+  document.getElementById("modal").classList.add("open");
+}
+
+async function guardar(t, interno) {
+  const cuerpo = document.getElementById("nuevo-com").value.trim();
+  if (!cuerpo) return;
+  const s = await sesionActual();
+  const autor = (s?.user?.email || "admin").split("@")[0];
+  await agregarComentario(t.id, autor, cuerpo, interno);
+  abrir(t);
+}
+
+async function mostrar() {
+  const s = await sesionActual();
+  if (s) {
+    document.getElementById("login").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("quien").textContent = (window.CONFIG?.EDIFICIO || "") + " · " + s.user.email;
+    cargarTablero();
+  } else {
+    document.getElementById("login").style.display = "block";
+    document.getElementById("app").style.display = "none";
+  }
+}
+
+document.getElementById("entrar").addEventListener("click", async () => {
+  const msg = document.getElementById("lmsg");
+  msg.textContent = "Entrando…";
+  try { await loginAdmin(document.getElementById("email").value.trim(), document.getElementById("pwd").value); mostrar(); }
+  catch (e) { msg.textContent = "No se pudo entrar: " + (e.message || e); }
+});
+document.getElementById("salir").addEventListener("click", async () => { await cerrarSesion(); mostrar(); });
+document.getElementById("m-close").addEventListener("click", () => document.getElementById("modal").classList.remove("open"));
+document.getElementById("modal").addEventListener("click", e => { if (e.target.id === "modal") e.currentTarget.classList.remove("open"); });
+
+mostrar();
+</script>
+</body>
+</html>
