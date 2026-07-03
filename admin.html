@@ -57,8 +57,10 @@
 </div>
 
 <nav class="demobar">
-  <span>Demo · saltar entre páginas:</span>
-  <a href="cargar.html">📩 Cargar</a>
+  <span>Ir a:</span>
+  <a href="index.html">🏠 Inicio</a>
+  <a href="reclamos.html">🛠️ Reclamo</a>
+  <a href="pagos.html">💰 Pago</a>
   <a href="seguimiento.html">🔎 Seguimiento</a>
   <a class="here" href="admin.html">🗂️ Admin</a>
 </nav>
@@ -90,7 +92,7 @@ async function cargarTablero() {
       items.map(t => `
         <div class="ticket" data-id="${t.id}">
           <p class="t">${TIPO_EMO[t.tipo] || "📝"} ${titulo(t)}</p>
-          <div class="meta"><span class="tag">${t.tipo === "pago" ? fmtMonto(t.monto) : (t.torre || "") + " · " + (t.unidad || "")}</span><span>#${t.codigo}</span></div>
+          <div class="meta"><span class="tag">${t.tipo === "pago" ? fmtMonto(t.monto) : (t.unidad || "s/unidad")}</span><span>#${t.codigo}</span></div>
         </div>`).join("")
     }</div>`;
   }).join("");
@@ -100,7 +102,7 @@ async function cargarTablero() {
 async function abrir(t) {
   document.getElementById("m-chip").innerHTML = estadoChip(t.estado);
   document.getElementById("m-title").textContent = titulo(t);
-  document.getElementById("m-sub").textContent = `#${t.codigo} · ${t.torre || ""} ${t.unidad || ""} · ${t.vecino_nombre || ""}`;
+  document.getElementById("m-sub").textContent = `#${t.codigo} · Unidad ${t.unidad || "?"} · ${t.vecino_nombre || "s/nombre"}`;
 
   const coments = await historialTicket(t.id);
   const { data: adj } = await sb.from("adjuntos").select("*").eq("ticket_id", t.id);
