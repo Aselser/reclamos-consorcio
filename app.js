@@ -26,24 +26,27 @@ export function fmtMonto(n) {
 }
 
 // ---------- Vecino: crear un ticket (sin login) ----------
+// Generamos id y código en el cliente: el vecino anónimo puede INSERTAR
+// pero la seguridad (RLS) no lo deja LEER la fila de vuelta, así que no
+// dependemos de que la base nos devuelva nada.
 export async function crearTicket(datos, archivos) {
-  const { data: ticket, error } = await sb
-    .from("tickets")
-    .insert(datos)
-    .select()
-    .single();
+  const id = crypto.randomUUID();
+  const codigo = Array.from(crypto.getRandomValues(new Uint8Array(2)))
+    .map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+
+  const { error } = await sb.from("tickets").insert({ ...datos, id, codigo });
   if (error) throw error;
 
   if (archivos && archivos.length) {
     for (const file of archivos) {
-      const path = `${ticket.id}/${Date.now()}-${file.name}`;
+      const path = `${id}/${Date.now()}-${file.name}`;
       const up = await sb.storage.from("adjuntos").upload(path, file);
       if (!up.error) {
-        await sb.from("adjuntos").insert({ ticket_id: ticket.id, path, nombre: file.name });
+        await sb.from("adjuntos").insert({ ticket_id: id, path, nombre: file.name });
       }
     }
   }
-  return ticket;
+  return { id, codigo };
 }
 
 // ---------- Vecino: login sin contraseña (link mágico) ----------
